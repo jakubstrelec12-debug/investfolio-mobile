@@ -112,7 +112,7 @@ attachGoto();bindCharts()
 }
 function portfolio(){
 const movements=Array.isArray(state.cashMovements)?state.cashMovements:[];
-const cashBalance=movements.reduce((v,m)=>v+(m.direction||0)*m.amount,0)-state.transactions.filter(t=>t.sourceCurrency==='EUR').reduce((v,t)=>v+(t.type==='buy'?1:-1)*(Number(t.sourceAmount)||0)-(t.type==='buy'?1:-1)*(Number(t.feeEUR)||0),0);
+const cashBalance=movements.reduce((v,m)=>v+(m.direction||0)*m.amount,0)-state.transactions.filter(t=>t.sourceCurrency==='EUR').reduce((v,t)=>v+(t.type==='buy'?1:-1)*(Number(t.sourceAmount)||0)+(Number(t.feeEUR)||0),0);
 const rows=state.transactions.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(t=>'<div class="listrow row"><div><strong>'+esc(t.symbol)+' · '+(t.type==='buy'?'Nákup':'Prodej')+'</strong><div class="small">'+esc(t.date)+' · '+fmt(t.quantity,8)+' '+esc(t.symbol)+'</div></div><div class="right"><strong>'+(Number.isFinite(t.value)?money(t.value):(t.sourceCurrency==='EUR'?fmt(t.sourceAmount,2)+' €':'—'))+'</strong><div class="small">Poplatek '+(Number.isFinite(t.fee)?money(t.fee):(t.sourceCurrency==='EUR'?fmt(t.feeEUR||0,2)+' €':'—'))+'</div>'+(t.sourceCurrency==='EUR'&&!Number.isFinite(t.value)?'<button class="btn secondary" style="margin-top:7px;font-size:11px;padding:7px 9px" data-fx-id="'+esc(t.id)+'">Doplnit kurz EUR/CZK</button>':'')+'</div></div>').join('');
 const cashRows=movements.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(m=>'<div class="listrow row"><div><strong>'+esc(m.label)+'</strong><div class="small">'+esc(m.date)+' · EUR</div></div><strong>'+(m.direction>=0?'+':'−')+fmt(m.amount,2)+' €</strong></div>').join('');
 shell('<div class="card"><h2>Aktuální pozice</h2>'+assets()+'</div>'+
