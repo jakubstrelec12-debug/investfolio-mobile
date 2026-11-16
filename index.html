@@ -91,60 +91,102 @@ main{max-width:1120px;padding:17px 14px 105px}
 .market-stats span{font-size:11px;color:#9bb3c0;display:block;margin-bottom:6px}
 .market-stats strong{font-size:16px}
 @media(max-width:500px){.tv-panel{height:245px}.market-subhead .value{font-size:21px}}
-#market-overview>.card{padding:0;margin:0;border:none;box-shadow:none;background:transparent}#market-overview>.card .chart-toolbar{flex-wrap:wrap}#market-overview>.card .chart-note{margin-bottom:0}</style></head><body><main id="app"></main><nav class="nav" id="nav"></nav><script>
-(()=>{'use strict';const KEY='investfolio.mobile.v1';const defaults={btcBudget:1000,etfPlan:3000,maxAllocation:20,sensitivity:'balanced',targetYears:20,annualReturn:7,inflation:2.5,currency:'CZK',notifications:false};let state={settings:{...defaults},transactions:[],quotes:{BTC:null,SPYI:null},updated:null};try{const stored=JSON.parse(localStorage.getItem(KEY));if(stored&&typeof stored==='object')state={...state,...stored,settings:{...defaults,...stored.settings}}}catch{}let page='home',tab='7d',chartMode='price',marketTab='SPYI',historyBusy=false,historyError='';const el=document.getElementById('app'),nav=document.getElementById('nav');const fmt=(n,d=0)=>Number(n||0).toLocaleString('cs-CZ',{minimumFractionDigits:d,maximumFractionDigits:d});const money=n=>Number.isFinite(n)?fmt(n)+' Kč':'—';const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(state));return true}catch{return false}};const parseNumber=s=>Number(String(s??'').replace(/\s|\u00a0|\u202f|CZK|EUR|USD|€/g,'').replace(',','.'));const qty=s=>Math.max(0,state.transactions.filter(t=>t.symbol===s).reduce((a,t)=>a+(t.type==='sell'?-1:1)*t.quantity,0));const invested=s=>state.transactions.filter(t=>t.symbol===s).reduce((a,t)=>a+(t.type==='sell'?-1:1)*(t.value===null||!Number.isFinite(t.value)||t.fee===null||!Number.isFinite(t.fee)?NaN:t.value+t.fee),0);const value=s=>qty(s)*(state.quotes[s]?.price||0);const total=()=>value('BTC')+value('SPYI');const spend=()=>{let d=new Date(),month=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');return state.transactions.filter(t=>t.symbol==='BTC'&&t.type==='buy'&&t.date.startsWith(month)).reduce((a,t)=>a+t.value+t.fee,0)};const remaining=()=>Math.max(0,state.settings.btcBudget-spend());const navItems=[['home','⌂','Přehled'],['portfolio','◫','Portfolio'],['radar','◎','BTC Radar'],['future','↗','Budoucnost'],['settings','⚙','Nastavení']];function shell(body,title,sub){el.innerHTML=`<div class="head"><div class="brand"><i>◈</i> investfolio</div><span class="small">OSOBNÍ INVESTICE</span></div><div class="page-heading"><div class="eyebrow">${esc(title)}</div><h1>${esc(title)}</h1><p class="small" style="margin:0 0 22px">${sub}</p></div>${body}<p class="footer">Data uložená v tomto prohlížeči nejsou synchronizována s Revolutem. Nejde o investiční doporučení ani službu automatického obchodování.</p>`;nav.innerHTML=navItems.map(([k,i,l])=>`<button data-page="${k}" class="${page===k?'sel':''}"><span>${i}</span>${l}</button>`).join('');nav.querySelectorAll('button').forEach(b=>b.onclick=()=>{page=b.dataset.page;render();window.scrollTo(0,0)})}function graph(){const vals=[34,36,35,40,39,43,46,44,48,52,50,55,60,59,65,69,67,72,77,75];const pts=vals.map((v,i)=>`${i*600/(vals.length-1)},${110-v}`).join(' ');return `<svg class="graph" viewBox="0 0 600 132" preserveAspectRatio="none" aria-label="Dekorativní graf, bez skutečné historické výkonnosti"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#a6ebd1" stop-opacity=".3"/><stop offset="1" stop-color="#a6ebd1" stop-opacity="0"/></linearGradient></defs><polygon points="0,132 ${pts} 600,132" fill="url(#g)"/><polyline points="${pts}" fill="none" stroke="#a6ebd1" stroke-width="3" vector-effect="non-scaling-stroke"/></svg>`}function chartSeries(){const all=Array.isArray(state.historyBTC?.prices)?state.historyBTC.prices:[];const cut=Date.now()-(tab==='7d'?7:30)*86400000;return all.filter(p=>Array.isArray(p)&&p[0]>=cut&&Number.isFinite(p[1])&&p[1]>0).sort((a,b)=>a[0]-b[0]);}
+#market-overview>.card{padding:0;margin:0;border:none;box-shadow:none;background:transparent}#market-overview>.card .chart-toolbar{flex-wrap:wrap}#market-overview>.card .chart-note{margin-bottom:0}
+/* Investfolio premium market overview */
+#market-overview{border-color:#304250;background:linear-gradient(150deg,#152631 0%,#101c29 70%);box-shadow:0 8px 34px #00000018}
+#market-overview .section-heading{margin:0 0 13px}
+.market-tabs{margin:0 0 19px;padding:4px;border:1px solid #344350;background:#0e1925}
+.market-tabs button{transition:background .18s,color .18s;font-size:12px;font-weight:700}
+.market-tabs button.selected{background:#a6ebd1;color:#112a25;box-shadow:0 3px 12px #00000024}
+.market-headline{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin:2px 0 16px}
+.market-headline .market-title{font-size:12px;color:#9eb1c1;font-weight:650}
+.market-headline .market-main{font-size:clamp(27px,7.6vw,39px);letter-spacing:-1.1px;font-weight:790;line-height:1.25;margin-top:4px;font-variant-numeric:tabular-nums}
+.market-headline .market-aside{font-size:11px;color:#96a9b9;text-align:right;line-height:1.55;padding-top:3px}
+.market-subtitle{font-size:12px;color:#a4b7c5;line-height:1.5}
+.market-periods{display:flex;gap:7px;margin:13px 0 12px;align-items:center}
+.market-periods button{background:#1c2b39;border:1px solid #324653;color:#b5c5d1;border-radius:10px;padding:8px 13px;font-weight:720;font-size:12px}
+.market-periods button.on{color:#102822;background:#a6ebd1;border-color:#a6ebd1}
+.tv-panel{height:200px;background:#111b27;border:1px solid #233544;border-radius:14px}
+.tv-panel iframe{min-height:198px!important}
+#market-overview .market-note{margin:11px 0 0;color:#93aaba}
+#market-overview .market-link{display:inline-block;margin-top:11px}
+#market-overview .market-chart{height:175px}
+#market-overview .chart-toolbar{flex-wrap:wrap}
+#market-overview .chart-foot{padding:0 2px}
+#market-overview>.card{padding:0;margin:0;border:0;box-shadow:none;background:transparent}
+.market-legend{display:flex;gap:8px;align-items:center;font-size:12px;color:#b7c6d2}
+.market-dot{height:9px;width:9px;display:inline-block;border-radius:50%;flex:none}
+.market-alloc-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 0;border-top:1px solid #293b49}
+.market-alloc-row strong{font-size:16px}
+.market-alloc-row small{font-size:11px;color:#a3b7c4}
+.market-donut{position:relative;width:142px;height:142px;flex:none;margin:auto}
+.market-donut svg{width:100%;height:100%}
+.market-donut .inner{text-align:center;position:absolute;inset:0;display:flex;justify-content:center;align-items:center;flex-direction:column;gap:3px}
+.market-donut .inner strong{font-size:17px;letter-spacing:-.5px}
+.market-donut .inner span{color:#94a9b8;font-size:10px}
+.market-layout{display:flex;align-items:center;gap:19px;padding:9px 0 13px}
+.market-layout .market-breakdown{flex:1;min-width:0}
+.market-footnote{color:#91a6b5;font-size:11px;line-height:1.5}
+@media(max-width:430px){.market-layout{gap:12px}.market-donut{width:115px;height:115px}#market-overview .card{padding:0}.market-tabs button{font-size:11px;padding:10px 3px}.market-alloc-row strong{font-size:14px}.tv-panel{height:194px}.tv-panel iframe{min-height:190px!important}}
+</style></head><body><main id="app"></main><nav class="nav" id="nav"></nav><script>
+(()=>{'use strict';const KEY='investfolio.mobile.v1';const defaults={btcBudget:1000,etfPlan:3000,maxAllocation:20,sensitivity:'balanced',targetYears:20,annualReturn:7,inflation:2.5,currency:'CZK',notifications:false};let state={settings:{...defaults},transactions:[],quotes:{BTC:null,SPYI:null},updated:null};try{const stored=JSON.parse(localStorage.getItem(KEY));if(stored&&typeof stored==='object')state={...state,...stored,settings:{...defaults,...stored.settings}}}catch{}let page='home',tab='7d',chartMode='price',marketTab='SPYI',etfPeriod='1M',historyBusy=false,historyError='';const el=document.getElementById('app'),nav=document.getElementById('nav');const fmt=(n,d=0)=>Number(n||0).toLocaleString('cs-CZ',{minimumFractionDigits:d,maximumFractionDigits:d});const money=n=>Number.isFinite(n)?fmt(n)+' Kč':'—';const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(state));return true}catch{return false}};const parseNumber=s=>Number(String(s??'').replace(/\s|\u00a0|\u202f|CZK|EUR|USD|€/g,'').replace(',','.'));const qty=s=>Math.max(0,state.transactions.filter(t=>t.symbol===s).reduce((a,t)=>a+(t.type==='sell'?-1:1)*t.quantity,0));const invested=s=>state.transactions.filter(t=>t.symbol===s).reduce((a,t)=>a+(t.type==='sell'?-1:1)*(t.value===null||!Number.isFinite(t.value)||t.fee===null||!Number.isFinite(t.fee)?NaN:t.value+t.fee),0);const value=s=>qty(s)*(state.quotes[s]?.price||0);const total=()=>value('BTC')+value('SPYI');const spend=()=>{let d=new Date(),month=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');return state.transactions.filter(t=>t.symbol==='BTC'&&t.type==='buy'&&t.date.startsWith(month)).reduce((a,t)=>a+t.value+t.fee,0)};const remaining=()=>Math.max(0,state.settings.btcBudget-spend());const navItems=[['home','⌂','Přehled'],['portfolio','◫','Portfolio'],['radar','◎','BTC Radar'],['future','↗','Budoucnost'],['settings','⚙','Nastavení']];function shell(body,title,sub){el.innerHTML=`<div class="head"><div class="brand"><i>◈</i> investfolio</div><span class="small">OSOBNÍ INVESTICE</span></div><div class="page-heading"><div class="eyebrow">${esc(title)}</div><h1>${esc(title)}</h1><p class="small" style="margin:0 0 22px">${sub}</p></div>${body}<p class="footer">Data uložená v tomto prohlížeči nejsou synchronizována s Revolutem. Nejde o investiční doporučení ani službu automatického obchodování.</p>`;nav.innerHTML=navItems.map(([k,i,l])=>`<button data-page="${k}" class="${page===k?'sel':''}"><span>${i}</span>${l}</button>`).join('');nav.querySelectorAll('button').forEach(b=>b.onclick=()=>{page=b.dataset.page;render();window.scrollTo(0,0)})}function graph(){const vals=[34,36,35,40,39,43,46,44,48,52,50,55,60,59,65,69,67,72,77,75];const pts=vals.map((v,i)=>`${i*600/(vals.length-1)},${110-v}`).join(' ');return `<svg class="graph" viewBox="0 0 600 132" preserveAspectRatio="none" aria-label="Dekorativní graf, bez skutečné historické výkonnosti"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#a6ebd1" stop-opacity=".3"/><stop offset="1" stop-color="#a6ebd1" stop-opacity="0"/></linearGradient></defs><polygon points="0,132 ${pts} 600,132" fill="url(#g)"/><polyline points="${pts}" fill="none" stroke="#a6ebd1" stroke-width="3" vector-effect="non-scaling-stroke"/></svg>`}function chartSeries(){const all=Array.isArray(state.historyBTC?.prices)?state.historyBTC.prices:[];const cut=Date.now()-(tab==='7d'?7:30)*86400000;return all.filter(p=>Array.isArray(p)&&p[0]>=cut&&Number.isFinite(p[1])&&p[1]>0).sort((a,b)=>a[0]-b[0]);}
 function svgChart(series,amountMode){if(series.length<2)return '<div class="chart-unavailable">Historická cenová data zatím nejsou dostupná.<br>Zkus obnovit graf.</div>';const w=640,h=210,top=17,bottom=30,left=12,right=12,vals=series.map(p=>p[1]*(amountMode?qty('BTC'):1)),lo=Math.min(...vals),hi=Math.max(...vals),span=Math.max(1,hi-lo),min=lo-span*.14,max=hi+span*.14;let px=i=>left+(w-left-right)*i/(vals.length-1),py=v=>top+(h-top-bottom)*(max-v)/(max-min);const line=vals.map((v,i)=>(i?'L':'M')+px(i).toFixed(2)+' '+py(v).toFixed(2)).join(' ');const area=line+' L '+px(vals.length-1).toFixed(2)+' '+(h-bottom)+' L '+left+' '+(h-bottom)+' Z';const up=vals.at(-1)>=vals[0],color=up?'#a6ebd1':'#f19f9c';const grid=[0,.5,1].map(fr=>'<line x1="'+left+'" y1="'+(top+(h-top-bottom)*fr).toFixed(1)+'" x2="'+(w-right)+'" y2="'+(top+(h-top-bottom)*fr).toFixed(1)+'" stroke="#34404b" stroke-dasharray="3 7"/>').join('');return '<svg class="market-chart" viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="none" role="img" aria-label="Skutečný historický graf ceny Bitcoinu, zdroj CoinGecko"><defs><linearGradient id="btcshade" x1="0" y1="0" x2="0" y2="1"><stop stop-color="'+color+'" stop-opacity=".10"/><stop offset="1" stop-color="'+color+'" stop-opacity="0"/></linearGradient></defs>'+grid+'<path d="'+area+'" fill="url(#btcshade)"/><path d="'+line+'" fill="none" stroke="'+color+'" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/><circle cx="'+px(vals.length-1)+'" cy="'+py(vals.at(-1))+'" r="5" fill="'+color+'"/></svg>';}
 
+
 function marketOverview(){
-  const hasETF=qty('SPYI')>0,hasBTC=qty('BTC')>0,hasBoth=hasETF&&hasBTC;
-  const q=state.quotes.SPYI,quantity=qty('SPYI');
-  const manualVal=q?.price&&quantity>0?quantity*q.price:null;
-  const stamp=q?.at?new Date(q.at).toLocaleString('cs-CZ'):'nezadáno';
-  const buttons=[['SPYI','ETF SPYI'],['BTC','Bitcoin'],['all','Portfolio']].map(([id,label])=>'<button type="button" data-market-tab="'+id+'" class="'+(marketTab===id?'selected':'')+'">'+label+'</button>').join('');
-  let body='';
-  if(marketTab==='SPYI'){
-    body='<div class="market-subhead"><div><div class="hint">SPDR MSCI ACWI IMI · Xetra · EUR</div><div class="value">'+(manualVal===null?fmt(quantity,6)+' SPYI':money(manualVal))+'</div></div><div class="hint" style="text-align:right">Cena / tržní graf<br>TradingView</div></div>'+
-    '<div class="tv-panel" id="tv-spyi"><div class="tradingview-widget-container"><div class="tradingview-widget-container__widget"></div></div></div>'+
-    '<p class="market-note">Tržní cenový graf SPYI je v eurech a může být zpožděný. Hodnota tvé pozice v Kč je zatím uložená ručně (poslední zadání: '+esc(stamp)+'). Graf neukazuje tvůj realizovaný výnos.</p>'+
-    '<a class="market-link" href="https://www.tradingview.com/symbols/XETR-SPYI/" target="_blank" rel="noopener noreferrer">Otevřít samostatný graf SPYI</a>';
-  } else if(marketTab==='BTC'){
-    body=chartBlock(true);
-  } else {
-    const btc=hasBTC&&state.quotes.BTC?.price?value('BTC'):null,etf=hasETF&&q?.price?value('SPYI'):null;
-    const valued=(btc!==null||!hasBTC)&&(etf!==null||!hasETF)&&(hasBTC||hasETF);
-    const b=btc||0,e=etf||0,t=b+e;
-    const wb=t?100*b/t:0,we=t?100*e/t:0;
-    body='<div class="market-subhead"><div><div class="hint">Celková tržní hodnota</div><div class="value">'+(valued?money(t):'Chybí aktuální cena')+'</div></div></div>'+
-    '<div class="allocation-bar"><span style="width:'+wb.toFixed(2)+'%"></span><span style="width:'+we.toFixed(2)+'%"></span></div>'+
-    '<div class="market-stats"><div><span>₿ Bitcoin · '+fmt(wb,1)+' %</span><strong>'+(btc===null?'—':money(btc))+'</strong></div><div><span>↗ SPYI · '+fmt(we,1)+' %</span><strong>'+(etf===null?'—':money(etf))+'</strong></div></div>'+
-    '<p class="market-note">Toto je rozložení současného portfolia, nikoli historický graf výkonnosti. Časovou řadu celé hodnoty budeme moci sestavit, až bude k dispozici historie cen ETF i měnových kurzů.</p>';
-  }
-  return '<section class="card" id="market-overview"><div class="section-heading"><h2>Vývoj investic</h2><span class="data-stamp">BTC + ETF</span></div><div class="market-tabs">'+buttons+'</div>'+body+'</section>';
+ const btcQty=qty('BTC'),spyQty=qty('SPYI'),quote=state.quotes.SPYI;
+ const spyVal=spyQty>0&&quote?.price>0?value('SPYI'):null;
+ const etfStamp=quote?.at?new Date(quote.at).toLocaleString('cs-CZ',{day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit'}):'nezadáno';
+ const selections=[['SPYI','ETF · SPYI'],['BTC','Bitcoin'],['all','Portfolio']];
+ const tabs=selections.map(([key,label])=>'<button type="button" data-market-tab="'+key+'" class="'+(marketTab===key?'selected':'')+'" aria-pressed="'+(marketTab===key)+'">'+label+'</button>').join('');
+ let body='';
+ if(marketTab==='SPYI'){
+  const ranges=[['1M','1 měsíc'],['12M','1 rok'],['60M','5 let']].map(([key,label])=>'<button type="button" data-etf-period="'+key+'" class="'+(etfPeriod===key?'on':'')+'">'+label+'</button>').join('');
+  body='<div class="market-headline"><div><div class="market-title">Hodnota tvých '+fmt(spyQty,6)+' podílů SPYI</div><div class="market-main">'+(spyVal===null?'—':money(spyVal))+'</div></div><div class="market-aside">Ocenění v Kč<br>'+esc(etfStamp)+'<br><span style="color:#e3c992">Ručně uložené</span></div></div>'+
+   '<div class="market-subtitle">SPDR MSCI ACWI IMI · Xetra · cena jednoho podílu v EUR</div>'+
+   '<div class="market-periods">'+ranges+'</div>'+
+   '<div class="tv-panel" id="tv-spyi" aria-label="Tržní cenový graf fondu SPYI"><div class="tradingview-widget-container"><div class="tradingview-widget-container__widget"></div></div></div>'+
+   '<p class="market-note">Burzovní graf od TradingView může být zpožděný. Nejde o graf výnosu tvého portfolia. Hodnota v Kč se zatím načítá z posledního ručního zadání.</p>'+
+   '<a class="market-link" target="_blank" rel="noopener noreferrer" href="https://www.tradingview.com/symbols/XETR-SPYI/">Otevřít podrobný graf SPYI</a>';
+ }else if(marketTab==='BTC'){
+  body=chartBlock(true);
+ }else{
+  const b=btcQty>0&&state.quotes.BTC?.price>0?value('BTC'):btcQty<=0?0:null;
+  const e=spyQty>0&&quote?.price>0?value('SPYI'):spyQty<=0?0:null;
+  const complete=b!==null&&e!==null&&(btcQty>0||spyQty>0),totalVal=(b||0)+(e||0);
+  const bp=totalVal>0?100*(b||0)/totalVal:0,ep=totalVal>0?100*(e||0)/totalVal:0;
+  const circle=2*Math.PI*47,btcArc=(bp/100*circle).toFixed(3);
+  body='<div class="market-headline"><div><div class="market-title">Aktuální rozložení portfolia</div><div class="market-main">'+(complete?money(totalVal):'Neúplné ocenění')+'</div></div><div class="market-aside">Hodnoty v CZK<br>Poslední dostupné ceny</div></div>'+
+   '<div class="market-layout"><div class="market-donut"><svg viewBox="0 0 120 120" role="img" aria-label="Rozložení hodnoty BTC a ETF SPYI"><circle cx="60" cy="60" r="47" fill="none" stroke="#293d4b" stroke-width="15"/><circle cx="60" cy="60" r="47" fill="none" stroke="#94c5dd" stroke-width="15" transform="rotate(-90 60 60)" stroke-dasharray="'+circle.toFixed(3)+'"/><circle cx="60" cy="60" r="47" fill="none" stroke="#f3a85b" stroke-width="15" transform="rotate(-90 60 60)" stroke-dasharray="'+btcArc+' '+circle.toFixed(3)+'"/></svg><div class="inner"><strong>'+fmt(complete?bp:0,0)+' %</strong><span>Bitcoin</span></div></div>'+
+   '<div class="market-breakdown"><div class="market-alloc-row"><div><div class="market-legend"><i class="market-dot" style="background:#f3a85b"></i><b>Bitcoin</b></div><small>'+fmt(bp,1)+' % portfolia</small></div><strong>'+(b===null?'—':money(b))+'</strong></div>'+
+   '<div class="market-alloc-row"><div><div class="market-legend"><i class="market-dot" style="background:#94c5dd"></i><b>ETF SPYI</b></div><small>'+fmt(ep,1)+' % portfolia</small></div><strong>'+(e===null?'—':money(e))+'</strong></div></div></div>'+
+   '<p class="market-footnote">Zobrazeno je aktuální rozložení, nikoli historická výkonnost. Bez spolehlivé časové řady cen ETF a kurzů EUR/CZK nelze poctivě vykreslit společný historický graf.</p>';
+ }
+ return '<section class="card" id="market-overview"><div class="section-heading"><h2>Investice v čase</h2><span class="data-stamp">Tržní přehled</span></div><div class="market-tabs" role="group" aria-label="Vyber investici">'+tabs+'</div>'+body+'</section>';
 }
 function bindMarketOverview(){
-  document.querySelectorAll('[data-market-tab]').forEach(b=>b.onclick=()=>{
-    marketTab=b.dataset.marketTab;
-    render();
-  });
-  if(marketTab==='BTC')bindCharts();
-  if(marketTab==='SPYI'){
-    const target=document.querySelector('#tv-spyi .tradingview-widget-container');
-    if(target){
-      const script=document.createElement('script');
-      script.src='https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
-      script.type='text/javascript';
-      script.async=true;
-      script.textContent=JSON.stringify({
-        autosize:true,symbol:'XETR:SPYI',interval:'D',timezone:'Europe/Prague',
-        theme:'dark',style:'3',locale:'cs',enable_publishing:false,
-        hide_top_toolbar:true,hide_legend:true,save_image:false,
-        allow_symbol_change:false,calendar:false,
-        backgroundColor:'rgba(17,27,39,1)',gridColor:'rgba(60,78,92,0.16)',
-        support_host:'https://www.tradingview.com'
-      });
-      target.appendChild(script);
-    }
+ document.querySelectorAll('[data-market-tab]').forEach(b=>b.onclick=()=>{marketTab=b.dataset.marketTab;render()});
+ document.querySelectorAll('[data-etf-period]').forEach(b=>b.onclick=()=>{etfPeriod=b.dataset.etfPeriod;render()});
+ if(marketTab==='BTC')bindCharts();
+ if(marketTab==='SPYI'){
+  const target=document.querySelector('#tv-spyi .tradingview-widget-container');
+  if(target){
+   const script=document.createElement('script');
+   script.src='https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
+   script.type='text/javascript';
+   script.async=true;
+   script.textContent=JSON.stringify({
+    autosize:true,symbol:'XETR:SPYI',interval:'D',range:etfPeriod,timezone:'Europe/Prague',
+    theme:'dark',style:'2',locale:'cs',enable_publishing:false,
+    hide_top_toolbar:true,hide_side_toolbar:true,hide_legend:true,hide_volume:true,
+    withdateranges:false,details:false,hotlist:false,save_image:false,
+    allow_symbol_change:false,calendar:false,
+    backgroundColor:'#111b27',gridColor:'rgba(60,78,92,0.12)',
+    support_host:'https://www.tradingview.com'
+   });
+   target.appendChild(script);
   }
+ }
 }
 
 function chartBlock(){const a=chartSeries(),v=chartMode==='holding',current=a.length?a.at(-1)[1]*(v?qty('BTC'):1):0,first=a.length?a[0][1]*(v?qty('BTC'):1):0,delta=first?100*(current-first)/first:0;return '<div class="card"><div class="row"><div><h2 style="margin-bottom:4px">Vývoj Bitcoinu</h2><div class="small">Skutečná tržní historie · CoinGecko</div></div><button class="btn secondary" id="reloadHistory" style="font-size:12px;padding:10px 12px">↻ Obnovit</button></div><div class="chart-toolbar"><div class="chart-actions"><button data-period="7d" class="'+(tab==='7d'?'active':'')+'">7 dní</button><button data-period="30d" class="'+(tab==='30d'?'active':'')+'">30 dní</button></div><select id="chartMode"><option value="price" '+(chartMode==='price'?'selected':'')+'>Cena BTC</option><option value="holding" '+(chartMode==='holding'?'selected':'')+'>Hodnota současných BTC</option></select></div>'+(a.length>=2?'<div class="chart-value">'+money(current)+'</div><div class="chart-change '+(delta>=0?'pos':'negative')+'">'+(delta>=0?'+':'')+fmt(delta,2)+' % za období</div>':'')+(historyBusy&&!a.length?'<div class="chart-unavailable">Načítám skutečné tržní ceny…</div>':svgChart(a,v))+(a.length>=2?'<div class="chart-foot"><span>'+new Date(a[0][0]).toLocaleDateString('cs-CZ')+'</span><span>'+new Date(a.at(-1)[0]).toLocaleDateString('cs-CZ')+'</span></div>':'')+'<p class="chart-note">'+(historyError?'Poslední obnovení se nezdařilo: '+esc(historyError)+'. Zobrazují se případná dříve uložená data. ': '')+(v?'Graf ukazuje, jak by se měnila hodnota tvého dnešního množství BTC při historických cenách. Není to historie skutečné hodnoty portfolia ani realizovaný výnos.':'Zobrazen je cenový vývoj BTC v CZK, nikoliv zisk tvých nákupů.')+'</p></div>';}
@@ -174,7 +216,7 @@ return '<div class="asset"><div class="coin '+(sym==='SPYI'?'spy':'')+'">'+(sym=
 }).join('');
 const last=state.historyBTC?.at?new Date(state.historyBTC.at).toLocaleString('cs-CZ',{day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit'}):'—';
 shell(onboard+
-'<div class="hero"><div class="eyebrow">CELKOVÁ HODNOTA PORTFOLIA</div><div class="big">'+(complete?money(t):'—')+'</div><div class="small">'+(complete?(costReady?(profit>=0?'Změna vůči nákladům ':'Ztráta vůči nákladům ')+(profit>=0?'+':'')+money(profit):'Pro výpočet zisku chybí pořizovací kurz EUR/CZK.'):(hasSpy&&!spyOk?'Doplň současnou hodnotu SPYI z Revolutu.':'Čeká se na tržní ocenění.'))+'</div><div class="hero-extra"><div class="hero-chip"><span>Evidované pořizovací náklady</span><strong>'+money(c)+'</strong></div><div class="hero-chip"><span>Počet nákupů a prodejů</span><strong>'+state.transactions.length+'</strong></div></div></div>'+
+'<div class="hero"><div class="eyebrow">CELKOVÁ HODNOTA PORTFOLIA</div><div class="big">'+(complete?money(t):'—')+'</div><div class="small">'+(complete?(costReady?(profit>=0?'Změna vůči nákladům ':'Ztráta vůči nákladům ')+(profit>=0?'+':'')+money(profit):'Pro výpočet zisku chybí pořizovací kurz EUR/CZK.'):(hasSpy&&!spyOk?'Doplň současnou hodnotu SPYI z Revolutu.':'Čeká se na tržní ocenění.'))+'</div><div class="hero-extra"><div class="hero-chip"><span>Celkové pořizovací náklady</span><strong>'+money(c)+'</strong></div><div class="hero-chip"><span>Evidovaných transakcí</span><strong>'+state.transactions.length+'</strong></div></div></div>'+
 marketOverview()+
 (hasSpy&&!spyOk?'<div class="card" style="border-color:#517777"><h2>Dokonči ocenění SPYI</h2><p class="small">Nákup ETF je zaevidovaný. Revolut ukazuje aktuální hodnotu v Kč, kterou zde můžeš přepsat. Bez ní nelze spočítat celkovou hodnotu portfolia.</p><form id="spyValForm"><div class="field"><label>Současná hodnota všech tvých SPYI v Kč</label><input name="spyTotal" type="number" step="0.01" min="0.01" inputmode="decimal" placeholder="Např. 1947.57" required></div><button type="submit" class="btn full">Uložit hodnotu ETF</button></form></div>':'')+
 '<div class="dashboard-top"><div class="card compact-card"><div class="section-heading"><h2>Moje investice</h2><span class="data-stamp">'+state.transactions.length+' transakcí</span></div>'+items+'<button data-goto="portfolio" class="btn secondary full" style="margin-top:11px">Portfolio a nákupy</button></div>'+
